@@ -617,10 +617,12 @@ public class ColladaModelRenderer : IRenderer
             StringBuilder colorString = new();
 
             var numberOfElements = nodeChunk.MeshData.GeometryInfo.GeometrySubsets.Sum(x => x.NumVertices);
+            var sourceElementCount = numberOfElements;
 
             if (verts is not null)  // Will be null if it's using VertsUVs.
             {
                 int numVerts = (int)verts.NumElements;
+                sourceElementCount = numVerts;
 
                 floatArrayVerts.ID = posSource.ID + "-array";
                 floatArrayVerts.Digits = 6;
@@ -796,10 +798,24 @@ public class ColladaModelRenderer : IRenderer
 
                 for (var k = subsets[j].FirstIndex; k < (subsets[j].FirstIndex + subsets[j].NumIndices); k += 3)
                 {
-                    var firstGlobalIndex = indices.Data[subsets[j].FirstIndex];
-                    uint localIndex0 = (uint)((indices.Data[k] - firstGlobalIndex) + offsetStart);
-                    uint localIndex1 = (uint)((indices.Data[k + 1] - firstGlobalIndex) + offsetStart);
-                    uint localIndex2 = (uint)((indices.Data[k + 2] - firstGlobalIndex) + offsetStart);
+                    uint localIndex0;
+                    uint localIndex1;
+                    uint localIndex2;
+
+                    if (verts is not null)
+                    {
+                        // The raw vertex streams are already written in global order.
+                        localIndex0 = indices.Data[k];
+                        localIndex1 = indices.Data[k + 1];
+                        localIndex2 = indices.Data[k + 2];
+                    }
+                    else
+                    {
+                        var firstGlobalIndex = indices.Data[subsets[j].FirstIndex];
+                        localIndex0 = (uint)((indices.Data[k] - firstGlobalIndex) + offsetStart);
+                        localIndex1 = (uint)((indices.Data[k + 1] - firstGlobalIndex) + offsetStart);
+                        localIndex2 = (uint)((indices.Data[k + 2] - firstGlobalIndex) + offsetStart);
+                    }
 
                     p.AppendFormat(formatString, localIndex0, localIndex1, localIndex2);
                 }
@@ -831,7 +847,7 @@ public class ColladaModelRenderer : IRenderer
             };
             posSource.Technique_Common.Accessor.Source = "#" + floatArrayVerts.ID;
             posSource.Technique_Common.Accessor.Stride = 3;
-            posSource.Technique_Common.Accessor.Count = (uint)numberOfElements;
+            posSource.Technique_Common.Accessor.Count = (uint)sourceElementCount;
             ColladaParam[] paramPos = new ColladaParam[3];
             paramPos[0] = new ColladaParam();
             paramPos[1] = new ColladaParam();
@@ -850,7 +866,7 @@ public class ColladaModelRenderer : IRenderer
                 {
                     Source = "#" + floatArrayNormals.ID,
                     Stride = 3,
-                    Count = (uint)numberOfElements
+                    Count = (uint)sourceElementCount
                 }
             };
             ColladaParam[] paramNorm = new ColladaParam[3];
@@ -874,7 +890,7 @@ public class ColladaModelRenderer : IRenderer
                 }
             };
 
-            uvSource.Technique_Common.Accessor.Count = (uint)numberOfElements;
+            uvSource.Technique_Common.Accessor.Count = (uint)sourceElementCount;
 
             ColladaParam[] paramUV = new ColladaParam[2];
             paramUV[0] = new ColladaParam();
@@ -893,7 +909,7 @@ public class ColladaModelRenderer : IRenderer
                 };
                 colorSource.Technique_Common.Accessor.Source = "#" + floatArrayColors.ID;
                 colorSource.Technique_Common.Accessor.Stride = 4;
-                colorSource.Technique_Common.Accessor.Count = (uint)numberOfElements;
+                colorSource.Technique_Common.Accessor.Count = (uint)sourceElementCount;
                 ColladaParam[] paramColor = new ColladaParam[4];
                 paramColor[0] = new ColladaParam();
                 paramColor[1] = new ColladaParam();
